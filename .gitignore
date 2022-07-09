@@ -1,0 +1,5 @@
+node_modules/
+*.otd
+*.ttc
+*.ttf
+*.zip

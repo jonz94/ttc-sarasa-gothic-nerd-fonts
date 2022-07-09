@@ -1,0 +1,191 @@
+name: generate ttc fonts from ttf fonts
+
+on:
+  # runs every 6 hour
+  schedule:
+    - cron: '0 */6 * * *'
+  # allow manually trigger
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      need-build: ${{ steps.check.outputs.need-build }}
+      latest-version: ${{ steps.check.outputs.latest-version }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: main
+      - name: check
+        id: check
+        run: |
+          # get the latest version
+          LATEST_VERSION=$(curl -fsSL https://api.github.com/repos/jonz94/Sarasa-Gothic-Nerd-Fonts/releases/latest | jq -r .tag_name | cut -d v -f 2)
+          echo latest version of jonz94/Sarasa-Gothic-Nerd-Fonts is ${LATEST_VERSION}
+
+          # get the current version
+          CURRENT_VERSION=$(cat ${GITHUB_WORKSPACE}/VERSION)
+          echo current version is ${CURRENT_VERSION}
+
+          if [[ "$LATEST_VERSION" == "$CURRENT_VERSION" ]]; then
+            echo everything is up to date!
+            echo "::set-output name=need-build::false"
+          else
+            echo a newer version is available
+            echo "::set-output name=need-build::true"
+            echo "::set-output name=latest-version::${LATEST_VERSION}"
+          fi
+
+  build:
+    runs-on: ubuntu-latest
+    needs: check
+    if: ${{ needs.check.outputs.need-build == 'true' }}
+    strategy:
+      matrix:
+        variants:
+          [
+            'regular',
+            'italic',
+            'bold',
+            'bolditalic',
+            'semibold',
+            'semibolditalic',
+            'light',
+            'lightitalic',
+            'extralight',
+            'extralightitalic',
+          ]
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: download fonts
+        run: |
+          # get the latest tag
+          LATEST_TAG=$(curl --silent https://api.github.com/repos/jonz94/Sarasa-Gothic-Nerd-Fonts/releases/latest | jq -r .tag_name)
+          if [[ "${LATEST_TAG}" == "null" ]]; then
+            echo cannot get latest tag of jonz94/Sarasa-Gothic-Nerd-Fonts
+            exit 1
+          fi
+          echo latest tag of jonz94/Sarasa-Gothic-Nerd-Fonts is ${LATEST_TAG}
+          env LATEST_TAG=${LATEST_TAG} bash download-fonts.sh
+
+      - name: install build-essential
+        run: sudo apt install build-essential -y
+
+      # setup premake 5
+      - name: install premake 5
+        run: |
+          curl -fsSL https://github.com/premake/premake-core/releases/download/v5.0.0-beta1/premake-5.0.0-beta1-linux.tar.gz -o premake-linux.tar.gz
+          tar xf premake-linux.tar.gz
+          mkdir -p ~/.local/bin
+          mv premake5 ~/.local/bin
+          rm premake-linux.tar.gz
+
+      # setup otfccbuild & otfccdump
+      - name: download otfcc
+        run: |
+          curl -fsSL https://github.com/caryll/otfcc/archive/refs/tags/v0.10.4.zip -o otfcc.zip
+          unzip otfcc.zip
+          mv otfcc-0.10.4 otfcc
+      - name: build otfcc from source
+        run: |
+          cd otfcc
+          premake5 gmake
+          cd build/gmake
+          make config=release_x64
+          ln -sf ${GITHUB_WORKSPACE}/otfcc/bin/release-x64/otfccbuild ${HOME}/.local/bin/
+          ln -sf ${GITHUB_WORKSPACE}/otfcc/bin/release-x64/otfccdump ${HOME}/.local/bin/
+          cd ${GITHUB_WORKSPACE}
+
+      # setup ttx
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      - name: install fonttools for ttx
+        run: pip install fonttools
+
+      # setup otfcc-ttcize
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+      - name: install otfcc-ttcize
+        run: npm ci
+
+      # generate ttc fonts
+      - name: build
+        run: env VARIANT=${{ matrix.variants }} bash build.sh
+      - run: ls -l
+
+      - name: upload generated ttc font
+        uses: actions/upload-artifact@v3
+        with:
+          name: generated sarasa ${{ matrix.variants }} ttc font
+          path: sarasa-${{ matrix.variants }}-nerd-font.ttc
+
+  zip:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: generated sarasa regular ttc font
+      - uses: actions/download-artifact@v3
+        with:
+          name: generated sarasa italic ttc font
+      - uses: actions/download-artifact@v3
+        with:
+          name: generated sarasa bold ttc font
+      - uses: actions/download-artifact@v3
+        with:
+          name: generated sarasa bolditalic ttc font
+      - uses: actions/download-artifact@v3
+        with:
+          name: generated sarasa semibold ttc font
+      - uses: actions/download-artifact@v3
+        with:
+          name: generated sarasa semibolditalic ttc font
+      - uses: actions/download-artifact@v3
+        with:
+          name: generated sarasa light ttc font
+      - uses: actions/download-artifact@v3
+        with:
+          name: generated sarasa lightitalic ttc font
+      - uses: actions/download-artifact@v3
+        with:
+          name: generated sarasa extralight ttc font
+      - uses: actions/download-artifact@v3
+        with:
+          name: generated sarasa extralightitalic ttc font
+
+      - run: ls -l
+      - name: zip patched font files
+        run: zip -r sarasa-nerd-font-ttc.zip sarasa-*-nerd-font.ttc
+      - run: ls -l
+      - name: upload zip
+        uses: actions/upload-artifact@v3
+        with:
+          name: sarasa-nerd-font-ttc.zip
+          path: sarasa-nerd-font-ttc.zip
+
+  commit-and-tag:
+    name: commit and tag
+    runs-on: ubuntu-latest
+    needs: [check, zip]
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: main
+          token: ${{ secrets.WORKFLOW_PERSONAL_ACCESS_TOKEN }}
+      - name: commit
+        run: |
+          LATEST_VERSION="${{ needs.check.outputs.latest-version }}"
+          echo $LATEST_VERSION > ${GITHUB_WORKSPACE}/VERSION
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add -A
+          git commit -m "🤖 ci: update fonts to v${LATEST_VERSION}"
+          git tag -a v${LATEST_VERSION} -m "🎉 build: release version v${LATEST_VERSION}"
+          git push origin main --follow-tags
