@@ -1,7 +1,7 @@
 name: generate ttc fonts from ttf fonts
 
 on:
-  # runs every 6 hour
+  # runs every 6 hours
   schedule:
     - cron: '0 */6 * * *'
   # allow manually trigger
