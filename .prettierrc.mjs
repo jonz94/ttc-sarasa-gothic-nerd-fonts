@@ -5,6 +5,15 @@ const config = {
   singleQuote: true,
 
   plugins: ['prettier-plugin-packagejson'],
+
+  overrides: [
+    {
+      files: ['.vscode/**.json'],
+      options: {
+        printWidth: 1,
+      },
+    },
+  ],
 }
 
 export default config
