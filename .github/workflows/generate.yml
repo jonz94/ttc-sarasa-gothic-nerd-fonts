@@ -119,7 +119,7 @@ jobs:
       # setup otfcc-ttcize
       - uses: actions/setup-node@v4
         with:
-          node-version: 16
+          node-version: 20
       - name: install otfcc-ttcize
         run: npm ci
 
