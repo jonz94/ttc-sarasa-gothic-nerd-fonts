@@ -14,7 +14,7 @@ jobs:
       need-build: ${{ steps.check.outputs.need-build }}
       latest-version: ${{ steps.check.outputs.latest-version }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           ref: main
       - name: check
@@ -66,7 +66,7 @@ jobs:
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -110,14 +110,14 @@ jobs:
           cd ${GITHUB_WORKSPACE}
 
       # setup ttx
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
       - name: install fonttools for ttx
         run: pip install fonttools
 
       # setup otfcc-ttcize
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           node-version: 16
       - name: install otfcc-ttcize
@@ -129,7 +129,7 @@ jobs:
       - run: ls -l
 
       - name: upload generated ttc font
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: generated sarasa ${{ matrix.variants }} ttc font
           path: sarasa-${{ matrix.variants }}-nerd-font.ttc
@@ -138,34 +138,34 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: generated sarasa regular ttc font
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: generated sarasa italic ttc font
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: generated sarasa bold ttc font
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: generated sarasa bolditalic ttc font
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: generated sarasa semibold ttc font
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: generated sarasa semibolditalic ttc font
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: generated sarasa light ttc font
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: generated sarasa lightitalic ttc font
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: generated sarasa extralight ttc font
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: generated sarasa extralightitalic ttc font
 
@@ -174,7 +174,7 @@ jobs:
         run: zip -r sarasa-nerd-font-ttc.zip sarasa-*-nerd-font.ttc
       - run: ls -l
       - name: upload zip
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: sarasa-nerd-font-ttc.zip
           path: sarasa-nerd-font-ttc.zip
@@ -184,7 +184,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [check, zip]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           ref: main
           token: ${{ secrets.WORKFLOW_PERSONAL_ACCESS_TOKEN }}
